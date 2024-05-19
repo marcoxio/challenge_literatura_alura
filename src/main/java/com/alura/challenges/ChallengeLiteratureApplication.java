@@ -26,243 +26,264 @@ public class ChallengeLiteratureApplication implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-		Scanner teclado = new Scanner(System.in);
-		muestraElMenu(teclado);
+		Scanner keyboard = new Scanner(System.in);
+		displayMenu(keyboard);
 
 	}
 
-	public void muestraElMenu(Scanner teclado) {
+	public void displayMenu(Scanner keyboard) {
 
-		var opcion = -1;
-		while (opcion != 0) {
+		var option = -1;
+		while (option != 0) {
 			var menu = """
-                    1 - Buscar libro por titulo
-                    2 - Buscar libros registrados
-                    3 - Listar autores registrados
-                    4 - Listar autores vivos en un determinado año
-                    5 - Listar libros por idioma
-                    6 - Generador estadisticas
-                    7 - Top 10 libros mas descargados
-                    8 - Buscar autor por nombre
-                    9 - Listar autores con otras consultas
+                    1 - Search book by title
+                    2 - Search registered books
+                    3 - List registered authors
+                    4 - List authors alive in a certain year
+                    5 - List books by language
+                    6 - Statistics generator
+                    7 - Top 10 most downloaded books
+                    8 - Search author by name
 
-                    0 - Salir
+                    0 - Exit
                     """;
 			System.out.println(menu);
-			opcion = teclado.nextInt();
-			teclado.nextLine();
+			option = keyboard.nextInt();
+			keyboard.nextLine();
 
-			switch (opcion) {
+			switch (option) {
 				case 1:
-					bookByTitle(teclado);
+					bookByTitle(keyboard);
 					break;
 				case 2:
-                    obtainAllBooks();
+					obtainAllBooks();
 					break;
 				case 3:
-                    obtainAllAuthors();
+					obtainAllAuthors();
 					break;
 				case 4:
-                    listarAutoresVivos(teclado);
+					listAuthorsAlive(keyboard);
 					break;
 				case 5:
-                    listarLibrosPorIdioma(teclado);
+					listBooksByLanguage(keyboard);
 					break;
 				case 6:
-					trabajarConEstadisticas();
+					workWithStatistics();
 					break;
 				case 7:
-					listarMiTop();
+					listMyTop();
 					break;
 				case 8:
-					buscarAutor(teclado);
+					searchAuthor(keyboard);
 					break;
 				case 0:
-					System.out.println("Cerrando la aplicación...");
+					System.out.println("Closing the application...");
 					break;
 				default:
-					System.out.println("Opción inválida");
+					System.out.println("Invalid option");
 			}
 		}
-
-
-
 	}
 
-	private void bookByTitle(Scanner teclado) {
-		System.out.println("Ingrese el nombre del libro que desea buscar");
-		String query = teclado.nextLine().toLowerCase();
-		var libros = gutendexService.buscarLibros(query);
+	private void bookByTitle(Scanner keyboard) {
+		String query = getBookTitleFromUser(keyboard);
+		List<Book> books = gutendexService.searchBooks(query);
 
-		if (libros.isEmpty()) {
-			System.out.println("No se encontraron libros con el título de búsqueda proporcionado.");
+		if (books.isEmpty()) {
+			System.out.println("No books were found with the provided search title.");
 			return;
 		}
 
-		System.out.println("Libros encontrados:");
-		for (int i = 0; i < libros.size(); i++) {
-			Book libro = libros.get(i);
-			System.out.println("----- LIBRO -----");
-			System.out.println("  Titulo: " + libro.getTitle());
-			System.out.println("  Autor: " + libro.getAuthors().get(0).getName());
-			System.out.println("  Idioma: " + libro.getLanguages().get(0));
-			System.out.println("  Numero de descargas: " + libro.getDownloadCount());
-			System.out.println("-----------------");
+		displayBooks(books);
 
-		}
+		System.out.println("Enter the ID of the book you want to save:");
+		int bookId = keyboard.nextInt();
+		keyboard.nextLine(); // consume newline
 
-		Book libroSeleccionado  = libros.stream()
+		Book selectedBook = books.stream()
+				.filter(book -> book.getId() == bookId)
 				.findFirst()
 				.orElse(null);
 
-		if (libroSeleccionado != null) {
-			gutendexService.guardarLibro(libroSeleccionado);
-			System.out.println("Libro guardado: " + libroSeleccionado.getTitle());
-		} else {
-			System.out.println("Libro no guardado");
-		}
+		saveBook(selectedBook);
+	}
 
+	private String getBookTitleFromUser(Scanner keyboard) {
+		System.out.println("Enter the name of the book you want to search for");
+		return keyboard.nextLine().toLowerCase();
+	}
+
+	private void displayBooks(List<Book> books) {
+		System.out.println("Books found:");
+		for (Book book : books) {
+			displayBookDetails(book);
+		}
+	}
+
+	private void displayBookDetails(Book book) {
+		System.out.println("----- BOOK -----");
+		System.out.println("  ID: " + book.getId());
+		System.out.println("  Title: " + book.getTitle());
+		if (!book.getAuthors().isEmpty()) {
+			System.out.println("  Author: " + book.getAuthors().get(0).getName());
+		}
+		if (!book.getLanguages().isEmpty()) {
+			System.out.println("  Language: " + book.getLanguages().get(0));
+		}
+		System.out.println("  Number of downloads: " + book.getDownloadCount());
+	}
+
+	private Book selectFirstBook(List<Book> books) {
+		return books.stream().findFirst().orElse(null);
+	}
+
+	private void saveBook(Book book) {
+		if (book != null) {
+			gutendexService.saveBook(book);
+			System.out.println("Book saved: " + book.getTitle());
+		} else {
+			System.out.println("Book not saved");
+		}
 	}
 
 	private void obtainAllBooks() {
-		List<BookEntity> misLibros = gutendexService.obtainAllBooks();
-		if (misLibros.isEmpty()) {
-			System.out.println("No hay libros en tu colección.");
+		List<BookEntity> myBooks = gutendexService.getAllBooks();
+		if (myBooks.isEmpty()) {
+			System.out.println("There are no books in your collection.");
 			return;
 		}
+		displayAllBooks(myBooks);
+	}
 
-		System.out.println("****************************");
-		System.out.println("----- LIBRO -----");
-		for (BookEntity libro : misLibros) {
-			Collectors Collectors = null;
-			System.out.println(
-					"ID: " + libro.getId() + " - Titulo: " + libro.getTitle() +
-							" - Autor(es): " + libro.getAuthors().stream()
+	private void displayAllBooks(List<BookEntity> books) {
+		for (BookEntity book : books) {
+			displayBookDetails(book);
+		}
+	}
+
+
+	private void displayBookDetails(BookEntity book) {
+		System.out.println("----- BOOK -----");
+		System.out.println("  ID: " + book.getId());
+		System.out.println("  Title: " + book.getTitle());
+		if (!book.getAuthors().isEmpty()) {
+			System.out.println("  Author: " + book.getAuthors().stream()
 					.map(AuthorEntity::getName)
 					.collect(Collectors.joining(", ")));
 		}
+		if (!book.getLanguages().isEmpty()) {
+			System.out.println("  Language: " + String.join(", ", book.getLanguages()));
+		}
+		System.out.println("  Number of downloads: " + book.getDownloadCount());
+		System.out.println("-----------------");
+		System.out.println();
 	}
 
 	private void obtainAllAuthors() {
-		List<AuthorEntity> misAutores = gutendexService.obtainAllAuthors();
-		if (misAutores.isEmpty()) {
-			System.out.println("No hay autores en tu colección.");
+		List<AuthorEntity> myAuthors = gutendexService.getAllAuthors();
+		if (myAuthors.isEmpty()) {
+			System.out.println("There are no authors in your collection.");
+			return;
+		}
+		System.out.println();
+		for (AuthorEntity author : myAuthors) {
+			displayAuthorDetails(author);
+		}
+	}
+
+	private void listAuthorsAlive(Scanner keyboard) {
+		System.out.println("****************************");
+		System.out.println("Enter the year:");
+		while (!keyboard.hasNextInt()) {
+			System.out.println("Invalid entry. Please enter a valid year.");
+			keyboard.next(); // consume the invalid input
+		}
+		int year = keyboard.nextInt();
+		keyboard.nextLine(); // consume newline
+
+		List<AuthorEntity> authorsAlive = gutendexService.listAuthorsAliveInYear(year);
+		if (authorsAlive.isEmpty()) {
+			System.out.println("There are no authors alive in the specified year.");
 			return;
 		}
 
 		System.out.println("****************************");
-		System.out.println("Autores en tu colección:");
-		for (AuthorEntity autor : misAutores) {
-			System.out.println("Nombre: " + autor.getName() + " - Año de nacimiento: " + autor.getBirthYear() + " - Año de fallecimiento: " + autor.getDeathYear());
+		System.out.println("Authors alive in the year " + year + ":");
+		for (AuthorEntity author : authorsAlive) {
+			displayAuthorDetails(author);
 		}
 	}
 
-	private void listarAutoresVivos(Scanner teclado) {
-		System.out.println("****************************");
-		System.out.println("Ingrese el año:");
-		while (!teclado.hasNextInt()) {
-			System.out.println("Entrada inválida. Por favor, ingrese un año válido.");
-			teclado.next(); // consume el input inválido
-		}
-		int year = teclado.nextInt();
-		teclado.nextLine(); // consume newline
-
-		List<AuthorEntity> autoresVivos = gutendexService.listarAutoresVivosEnAno(year);
-		if (autoresVivos.isEmpty()) {
-			System.out.println("No hay autores vivos en el año especificado.");
-			return;
-		}
-
-		System.out.println("****************************");
-		System.out.println("Autores vivos en el año " + year + ":");
-		for (AuthorEntity autor : autoresVivos) {
-			System.out.println("Nombre: " + autor.getName() + " - Año de nacimiento: " + autor.getBirthYear() + " - Año de fallecimiento: " + autor.getDeathYear());
+	private void displayAuthorDetails(AuthorEntity author) {
+		System.out.println("Author: " + author.getName());
+		System.out.println("Year of birth: " + author.getBirthYear());
+		System.out.println("Year of death: " + author.getDeathYear());
+		if (author.getBook() != null) {
+			System.out.println("Book: " + author.getBook().getTitle());
+			System.out.println();
 		}
 	}
 
-	private void listarLibrosPorIdioma(Scanner teclado) {
+	private void listBooksByLanguage(Scanner keyboard) {
 		System.out.println("****************************");
-		System.out.println("Ingrese en para inglés, es para español):");
-		String idioma = teclado.nextLine().toLowerCase();
-		List<BookEntity> librosPorIdioma = gutendexService.listarLibrosPorIdioma(idioma);
-		if (librosPorIdioma.isEmpty()) {
-			System.out.println("No hay libros en el idioma especificado.");
-			return;
-		}
-
-		System.out.println("****************************");
-		System.out.println("Libros en " + idioma + ":");
-		for (BookEntity libro : librosPorIdioma) {
-			System.out.println("ID: " + libro.getId() + " - Título: " + libro.getTitle() + " - Autor(es): " + libro.getAuthors().stream()
-					.map(AuthorEntity::getName)
-					.collect(Collectors.joining(", ")));
-		}
-	}
-
-	private void trabajarConEstadisticas() {
-
-	}
-
-	//Trabajando con estadisticas
-//	DoubleSummaryStatistics est = datos.resultados().stream()
-//			.filter(d -> d.numeroDeDescargas() >0 )
-//			.collect(Collectors.summarizingDouble(DatosLibros::numeroDeDescargas));
-//        System.out.println("Cantidad media de descargas: " + est.getAverage());
-//        System.out.println("Cantidad máxima de descargas: "+ est.getMax());
-//        System.out.println("Cantidad mínima de descargas: " + est.getMin());
-//        System.out.println(" Cantidad de registros evaluados para calcular las estadisticas: " + est.getCount());
-
-
-	private void listarMiTop() {
-		List<BookEntity> topLibros = gutendexService.listarTopLibros();
-		if (topLibros.isEmpty()) {
-			System.out.println("No hay libros en tu colección.");
-			return;
-		}
-
-		System.out.println("****************************");
-		System.out.println("Top 5 libros en tu colección:");
-		for (BookEntity libro : topLibros) {
-			System.out.println("ID: " + libro.getId() + " - Título: " + libro.getTitle() + " - Descargas: " + libro.getDownloadCount());
-		}
-	}
-
-	private void buscarAutor(Scanner teclado) {
-		System.out.println("****************************");
-		System.out.println("Ingrese el nombre del autor:");
-		String autor = teclado.nextLine().toLowerCase();
-		var libros = gutendexService.buscarLibrosPorAutor(autor);
-
-		if (libros.isEmpty()) {
-			System.out.println("No se encontraron libros para el autor proporcionado.");
-			return;
-		}
-
-		System.out.println("Libros encontrados:");
-		for (int i = 0; i < libros.size(); i++) {
-			Book libro = libros.get(i);
-			System.out.println("ID: " + libro.getId() + " - Título: " + libro.getTitle() + " - Autor: " + libro.getAuthors().get(0).getName());
-		}
-
-		System.out.println("¿Desea guardar alguno de estos libros en la colección? (si/no)");
-		String respuesta = teclado.nextLine();
-
-		if (respuesta.equalsIgnoreCase("si")) {
-			System.out.println("Ingrese el ID del libro que desea guardar:");
-			int idLibro = teclado.nextInt();
-			teclado.nextLine(); // consume newline
-
-			Book libroSeleccionado = libros.stream()
-					.filter(libro -> libro.getId() == idLibro)
-					.findFirst()
-					.orElse(null);
-
-			if (libroSeleccionado != null) {
-				gutendexService.guardarLibro(libroSeleccionado);
-				System.out.println("Libro guardado: " + libroSeleccionado.getTitle());
-			} else {
-				System.out.println("ID de libro inválido.");
+		System.out.println("Enter languages separated by commas (e.g., en,es,fr,pt for English, Spanish, French, Portuguese):");
+		String[] languages = keyboard.nextLine().toLowerCase().split(",");
+		for (String language : languages) {
+			List<BookEntity> booksByLanguage = gutendexService.listBooksByLanguage(language.trim());
+			if (booksByLanguage.isEmpty()) {
+				System.out.println("There are no books in the language: " + language);
+				continue;
 			}
+
+			System.out.println("****************************");
+			System.out.println("Books in " + language + ":");
+			for (BookEntity book : booksByLanguage) {
+				displayBookDetails(book);
+			}
+		}
+	}
+
+
+	private void workWithStatistics() {
+		DoubleSummaryStatistics statistics = gutendexService.generateStatistics();
+		System.out.println("Count Books in DB: " + statistics.getCount());
+		System.out.println("Min download: " + statistics.getMin());
+		System.out.println("Max download: " + statistics.getMax());
+		System.out.println("Average download: " + statistics.getAverage());
+		System.out.println("Sum: " + statistics.getSum());
+
+
+	}
+
+	private void listMyTop() {
+		List<BookEntity> topBooks = gutendexService.listTopBooks();
+		if (topBooks.isEmpty()) {
+			System.out.println("There are no books in your collection.");
+			return;
+		}
+
+		System.out.println("****************************");
+		System.out.println("Top 10 books in your collection:");
+		for (BookEntity book : topBooks) {
+			displayBookDetails(book);
+		}
+	}
+
+	private void searchAuthor(Scanner keyboard) {
+		System.out.println("****************************");
+		System.out.println("Enter the author's name:");
+		String author = keyboard.nextLine().toLowerCase();
+		// Call a new method that searches for books by the author in your database
+		var books = gutendexService.searchBooksByAuthorInDatabase(author);
+
+		if (books.isEmpty()) {
+			System.out.println("No books were found for the provided author in the database.");
+			return;
+		}
+
+		System.out.println("Books found in the database:");
+		for (BookEntity book : books) {
+			displayBookDetails(book);
 		}
 	}
 }

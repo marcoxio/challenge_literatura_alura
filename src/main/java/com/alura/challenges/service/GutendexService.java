@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,16 +29,16 @@ public class GutendexService {
 
 
     @Transactional(readOnly = true)
-    public List<BookEntity> obtainAllBooks() {
+    public List<BookEntity> getAllBooks() {
         return bookRepository.findAll();
     }
 
     @Transactional(readOnly = true)
-    public List<AuthorEntity> obtainAllAuthors() {
+    public List<AuthorEntity> getAllAuthors() {
         return authorRepository.findAll();
     }
 
-    public List<Book> buscarLibros(String query) {
+    public List<Book> searchBooks(String query) {
         String url = UriComponentsBuilder.fromHttpUrl("https://gutendex.com/books")
                 .queryParam("search", query)
                 .toUriString();
@@ -46,29 +47,29 @@ public class GutendexService {
         return response != null ? response.getResults() : List.of();
     }
 
-    public List<Book> buscarLibrosPorAutor(String autor) {
+    public List<Book> searchBooksByAuthor(String author) {
         String url = UriComponentsBuilder.fromHttpUrl("https://gutendex.com/books")
-                .queryParam("search", autor)
+                .queryParam("search", author)
                 .toUriString();
 
         DataResponse response = restTemplate.getForObject(url, DataResponse.class);
         if (response != null && response.getResults() != null) {
             return response.getResults().stream()
                     .filter(book -> book.getAuthors().stream()
-                            .anyMatch(a -> a.getName().toLowerCase().contains(autor)))
+                            .anyMatch(a -> a.getName().toLowerCase().contains(author)))
                     .collect(Collectors.toList());
         }
         return List.of();
     }
 
-    public BookEntity guardarLibro(Book libro) {
+    public BookEntity saveBook(Book book) {
         BookEntity bookEntity = new BookEntity();
-        bookEntity.setId(libro.getId());
-        bookEntity.setTitle(libro.getTitle());
-        bookEntity.setDownloadCount(libro.getDownloadCount());
-        bookEntity.setLanguages(libro.getLanguages());
+        bookEntity.setId(book.getId());
+        bookEntity.setTitle(book.getTitle());
+        bookEntity.setDownloadCount(book.getDownloadCount());
+        bookEntity.setLanguages(book.getLanguages());
 
-        List<AuthorEntity> authorEntities = libro.getAuthors().stream()
+        List<AuthorEntity> authorEntities = book.getAuthors().stream()
                 .map(author -> {
                     AuthorEntity authorEntity = new AuthorEntity();
                     authorEntity.setName(author.getName());
@@ -84,7 +85,7 @@ public class GutendexService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookEntity> listarTopLibros() {
+    public List<BookEntity> listTopBooks() {
         return bookRepository.findAll().stream()
                 .sorted((b1, b2) -> Integer.compare(b2.getDownloadCount(), b1.getDownloadCount()))
                 .limit(10)
@@ -92,17 +93,27 @@ public class GutendexService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookEntity> listarLibrosPorIdioma(String idioma) {
+    public List<BookEntity> listBooksByLanguage(String language) {
         return bookRepository.findAll().stream()
-                .filter(book -> book.getLanguages().contains(idioma))
+                .filter(book -> book.getLanguages().contains(language))
                 .collect(Collectors.toList());
     }
 
 
     @Transactional(readOnly = true)
-    public List<AuthorEntity> listarAutoresVivosEnAno(int year) {
+    public List<AuthorEntity> listAuthorsAliveInYear(int year) {
         return authorRepository.findByBirthYearLessThanEqualAndDeathYearGreaterThanEqual(year, year);
     }
 
+
+    public DoubleSummaryStatistics generateStatistics() {
+        return bookRepository.findAll().stream()
+                .mapToDouble(BookEntity::getDownloadCount)
+                .summaryStatistics();
+    }
+
+    public List<BookEntity> searchBooksByAuthorInDatabase(String author) {
+        return bookRepository.findByAuthorsNameContainingIgnoreCase(author);
+    }
 
 }
